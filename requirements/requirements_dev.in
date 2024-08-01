@@ -1,0 +1,13 @@
+# Requirements for development
+-c requirements.txt
+black==22.6.0               # Code formater
+bump2version==1.0.0         # Version control
+flake8==4.0.1               # Source code linter
+mypy==0.961                 # Type annotations for Python
+pre-commit==2.19.0          # Pre-commit hooks
+pydocstyle==6.1.1           # Analyze docstring conventions
+pytest==7.1.2               # Test library
+pytest-html-reporter==0.2.9 # Static html report based on pytest
+tox~=3.20.0                 # Test automation tool
+twine==4.0.1                # Publish package
+wheel==0.37.0               # A built-package formattwine
