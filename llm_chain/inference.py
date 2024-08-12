@@ -24,24 +24,36 @@ def inference(file):
 def LLM_consume(db_schema, ontology):
     
     prompt = f"""
-    Necesito generar un fichero RML (RDF Mapping Language) que mapee una base de datos relacional a RDF usando una ontología específica.
+    I need to generate an RML (RDF Mapping Language) file that maps a relational database to RDF using a specific ontology.
 
-    ### Ontología:
+    ### Ontology:
     {ontology}
 
-    ### Esquema de la base de datos (en formato CSV):
+    ### Database schema (in CSV format):
     {db_schema}
 
-    ### Requisitos:
-    1. Usa la ontología proporcionada para definir las clases y propiedades en el RML.
-    2. Cada columna del esquema de la base de datos debe mapearse a una propiedad adecuada de la ontología.
-    3. Genera un mapeo para cada tabla en el esquema CSV.
-    4. Asegúrate de definir los TriplesMap, LogicalSource, SubjectMap, PredicateObjectMap, y cualquier otra estructura necesaria de acuerdo con la especificación RML.
-    5. El RML generado debe ser válido y compatible con motores de mapeo RML, como RMLMapper.
+    ### Requirements:
+    1. Use the provided ontology to define the classes and properties in the RML.
+    2. Each column in the database schema should be mapped to an appropriate property in the ontology.
+    3. Generate a mapping for each table in the CSV schema.
+    4. Ensure that `TriplesMap`, `LogicalSource`, `SubjectMap`, `PredicateObjectMap`, and any other necessary structures are defined according to the RML specification.
+    5. The generated RML must be valid and compatible with RML mapping engines, such as RMLMapper.
 
-    Proporciona el contenido completo del fichero RML en formato texto. No incluyas saltos de linea al comienzo del fichero ni triples comillas
+    Provide the complete content of the RML file in text format. Do not include line breaks at the beginning of the file or triple quotes.
     """
 
+
+    headers = {
+        'Content-Type': 'application/json',
+    }
+
+    json_data = {
+        'model': 'TheBloke/Mixtral-8x7B-Instruct-v0.1-GPTQ',
+        'prompt': prompt,
+        'max_tokens': 450,
+        'temperature': 0,
+    }
+    
     response = requests.post('http://localhost:8081/v1/completions', headers=headers, json=json_data)
     json_out = json.loads(response.content)
     output = json_out['choices'][0]['text']

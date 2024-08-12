@@ -42,7 +42,3 @@
     ex:hasName a rdf:Property ;
         rdfs:domain ex:Person ;
         rdfs:range rdfs:Literal .
-
-    ex:hasAge a rdf:Property ;
-        rdfs:domain ex:Person ;
-        rdfs:range rdfs:Literal .
