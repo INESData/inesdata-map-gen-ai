@@ -3,6 +3,7 @@ import json
 from pprint import pprint
 
 import argparse
+from pathlib import Path
 
 
 def read_ontology(file):
@@ -76,8 +77,15 @@ def main():
     print(ontology_str)
     print(csv_schema)
     
-    LLM_consume(ontology_str, csv_schema)
+
+    output = LLM_consume(ontology_str, csv_schema)
     
+    parent_dir = Path(ontology_file).parent
+    print(parent_dir)
+    path_output_file = parent_dir / 'output_RML.ttl'
+
+    with open(path_output_file, 'w') as file:
+        file.write(output) 
     
 if __name__ == "__main__":
     main()
