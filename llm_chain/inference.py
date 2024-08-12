@@ -36,22 +36,11 @@ def LLM_consume(db_schema, ontology):
     1. Usa la ontología proporcionada para definir las clases y propiedades en el RML.
     2. Cada columna del esquema de la base de datos debe mapearse a una propiedad adecuada de la ontología.
     3. Genera un mapeo para cada tabla en el esquema CSV.
-    4. Asegúrate de definir los `TriplesMap`, `LogicalSource`, `SubjectMap`, `PredicateObjectMap`, y cualquier otra estructura necesaria de acuerdo con la especificación RML.
+    4. Asegúrate de definir los TriplesMap, LogicalSource, SubjectMap, PredicateObjectMap, y cualquier otra estructura necesaria de acuerdo con la especificación RML.
     5. El RML generado debe ser válido y compatible con motores de mapeo RML, como RMLMapper.
 
-    Proporciona el contenido completo del fichero RML en formato texto.
+    Proporciona el contenido completo del fichero RML en formato texto. No incluyas saltos de linea al comienzo del fichero ni triples comillas
     """
-
-    headers = {
-        'Content-Type': 'application/json',
-    }
-
-    json_data = {
-        'model': 'TheBloke/Mixtral-8x7B-Instruct-v0.1-GPTQ',
-        'prompt': prompt,
-        'max_tokens': 900,
-        'temperature': 0,
-    }
 
     response = requests.post('http://localhost:8081/v1/completions', headers=headers, json=json_data)
     json_out = json.loads(response.content)
@@ -73,15 +62,10 @@ def main():
     
     ontology_str = read_ontology(ontology_file)
     csv_schema = read_schema_csv(csv_file)
-    
-    print(ontology_str)
-    print(csv_schema)
-    
 
     output = LLM_consume(ontology_str, csv_schema)
     
     parent_dir = Path(ontology_file).parent
-    print(parent_dir)
     path_output_file = parent_dir / 'output_RML.ttl'
 
     with open(path_output_file, 'w') as file:
