@@ -4,6 +4,9 @@ from pprint import pprint
 
 import argparse
 from pathlib import Path
+import sys
+
+sys.path.insert(1, '/home/jovyan/jfog/gen-ai-rml-api')
 
 from experiments.sample1.prompt_template import get_prompt
 
