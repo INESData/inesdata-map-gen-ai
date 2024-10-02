@@ -97,4 +97,3 @@ This project is licensed by ...
 
 * Hat tip to anyone whose code was used
 * Inspiration
-* etc
