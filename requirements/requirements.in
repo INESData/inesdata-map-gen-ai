@@ -6,3 +6,4 @@ openai==1.51.2
 rdflib==7.1.0
 morph-kgc== 2.8.0
 pandas== 2.2.3
+bs4==0.0.2

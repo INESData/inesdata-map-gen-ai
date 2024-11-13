@@ -1,13 +1,13 @@
 
-def get_prompt(data_source, ontology):
+def get_prompt(data_source_schema, ontology):
     prompt = f"""
         Necesito generar un fichero RML (RDF Mapping Language) que mapee una fuente de datos a RML usando una ontología específica.
-        
+
         #### Ontología:
         {ontology}
 
         ### Fuente de datos (en formato CSV):
-        {data_source}
+        {data_source_schema}
 
         ### Requisitos:
         1. Usa la ontología proporcionada para definir las clases y propiedades en el RML.

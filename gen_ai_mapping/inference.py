@@ -22,7 +22,7 @@ def main():
     output = execute_experiment('exp' + experiment_name)
 
     if output:
-        path_output_file = f"/home/jovyan/vllm-work/data/output/exp{experiment_name}_output.ttl"
+        path_output_file = f"data/output/exp{experiment_name}_output.ttl"
 
         with open(path_output_file, 'w') as file:
             file.write(output)
