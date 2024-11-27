@@ -1,5 +1,9 @@
 import argparse
 import time
+import sys
+import os
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from inference import get_inference
 
