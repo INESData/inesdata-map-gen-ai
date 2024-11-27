@@ -221,6 +221,8 @@ propcache==0.2.0
     # via yarl
 protobuf==5.28.2
     # via mlflow-skinny
+psycopg2-binary==2.9.10
+    # via -r requirements/requirements.in
 pyarrow==17.0.0
     # via mlflow
 pyasn1==0.6.1

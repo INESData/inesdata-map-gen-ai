@@ -1,8 +1,8 @@
 {
     "command": "python3 llm_chain/inference.py -exp 1",
     "temp": 0,
-    "data_source": "data/input/datasources/people.csv",
-    "ontology": "data/input/ontologies/people.ttl",
+    "data_sources": [29],
+    "ontologies": [1],
     "expected_result": "data/output/expected/people_expected_RML.rml",
     "prompt_technique": "zero-shot",
     "model": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GPTQ",
