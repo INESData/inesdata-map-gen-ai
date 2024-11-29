@@ -24,10 +24,13 @@ def main():
     output = get_inference("exp" + experiment_name, data_sources, ontologies)
 
     if output:
-        path_output_file = f"data/output/exp{experiment_name}_output.ttl"
+        output_dir = "/home/mapper/output/gen-ai"
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+            path_output_file = f"{output_dir}/exp{experiment_name}_output.ttl"
 
-        with open(path_output_file, "w") as file:
-            file.write(output)
+            with open(path_output_file, "w") as file:
+                file.write(output)
     else:
         print("error")
     end = time.time()

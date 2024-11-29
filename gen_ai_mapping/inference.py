@@ -104,10 +104,11 @@ def track_experiment(experiment_name: str, experiment_params: dict, prompt):
 
         metrics = {}
         path_expected_output_file = experiment_params["expected_result"]
-        with open(path_expected_output_file, "r") as f:
-            expected_result = f.read()
-        text_similarity = get_text_similarity(result, expected_result)
-        metrics.update({"text_similarity": text_similarity})
+        if os.path.exists(path_expected_output_file):
+            with open(path_expected_output_file, "r") as f:
+                expected_result = f.read()
+            text_similarity = get_text_similarity(result, expected_result)
+            metrics.update({"text_similarity": text_similarity})
 
         # Log metrics
         mlflow.log_metrics(metrics)
