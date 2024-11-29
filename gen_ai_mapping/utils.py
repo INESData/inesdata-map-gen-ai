@@ -14,9 +14,10 @@ from sqlalchemy import create_engine
 def connect_to_db():
     # PostgreSQL database URL
     db_driver, db_host = os.getenv("SPRING_DATASOURCE_URL").split("://", 1)
+    db_driver_name = db_driver.split(':')[-1]
     db_user = os.getenv("SPRING_DATASOURCE_USERNAME")
     db_pass = os.getenv("SPRING_DATASOURCE_PASSWORD")
-    db_url = f"{db_driver}://{db_user}:{db_pass}@{db_host}"
+    db_url = f"{db_driver_name}://{db_user}:{db_pass}@{db_host}"
 
     try:
         # Create a SQLAlchemy engine
