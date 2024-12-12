@@ -1,3 +1,4 @@
+import importlib
 import json
 import os
 import xml.etree.ElementTree as ET
@@ -14,7 +15,7 @@ from sqlalchemy import create_engine
 def connect_to_db():
     # PostgreSQL database URL
     db_driver, db_host = os.getenv("SPRING_DATASOURCE_URL").split("://", 1)
-    db_driver_name = db_driver.split(':')[-1]
+    db_driver_name = db_driver.split(":")[-1]
     db_user = os.getenv("SPRING_DATASOURCE_USERNAME")
     db_pass = os.getenv("SPRING_DATASOURCE_PASSWORD")
     db_url = f"{db_driver_name}://{db_user}:{db_pass}@{db_host}"
@@ -227,11 +228,63 @@ def extract_schema_json(file_path, data=[], depth=0):
         return {"type": type(data).__name__}
 
 
-def get_experiment_params(experiment_name: str):
-    with open("experiments/" + experiment_name + "/llm_params.json") as f:
-        params = json.load(f)
+def get_experiment_params(experiment_path: str):
+    if experiment_path != "":
+        with open(experiment_path + "llm_params.json") as f:
+            params = json.load(f)
+    else:
+        with importlib.resources.open_text(
+            "gen_ai_mapping", experiment_path + "llm_params.json"
+        ) as f:
+            params = json.load(f)
 
     return params
+
+
+def get_experiment_prompt(
+    experiment_path: str,
+    experiment_params: dict,
+    data_sources_ids: list,
+    ontologies_ids: list,
+):
+    if experiment_path != "":
+        experiments_module_path = experiment_path.replace("/", ".")
+    else:
+        experiments_module_path = ""
+    prompt_template_module = importlib.import_module(
+        experiments_module_path + "prompt_template"
+    )
+
+    ds_schemas = extract_ds_schemas(data_sources_ids)
+
+    if eval(experiment_params["chunked"]):
+        ontologies = load_ontologies_rdf(ontologies_ids)
+        prompts = []
+        for ontology in ontologies:
+            for ontology_field in ontology:
+                prompt_template = prompt_template_module.get_prompt(
+                    ds_schemas, ontology_field
+                )
+                prompts.append(prompt_template)
+        print(f"{len(prompts)} prompts generated with chunking")
+        return prompts
+    else:
+        ontologies = load_ontologies_str(ontologies_ids)
+        prompt_template = prompt_template_module.get_prompt(ds_schemas, ontologies)
+
+    return prompt_template
+
+
+def get_experiment_prompt_txt(experiment_path: str):
+    with open(experiment_path + "prompt_template.txt", "r") as file:
+        prompt_template = file.read()
+
+    prompt_template = PromptTemplate(
+        input_variables=["ontology", "data_source_schema"],
+        template=prompt_template,
+    )
+
+    return prompt_template
 
 
 def get_token_kubeflow():

@@ -12,7 +12,9 @@ def main():
     start = time.time()
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-exp", "--experiment_name", help="Experiment Name")
+    parser.add_argument(
+        "-exp", "--experiment_name", help="Experiment Name", required=False
+    )
     parser.add_argument("-ds", "--data_sources", help="Data Sources IDs")
     parser.add_argument("-o", "--ontologies", help="Ontologies IDs")
 
@@ -21,7 +23,11 @@ def main():
     data_sources = args.data_sources
     ontologies = args.ontologies
 
-    output = get_inference("exp" + experiment_name, data_sources, ontologies)
+    # if experiment is not defined: inference call from the web mapper-backend
+    if experiment_name:
+        experiment_name = f"exp{experiment_name}"
+
+    output = get_inference(experiment_name, data_sources, ontologies)
 
     if output:
         output_dir = "/home/mapper/output/gen-ai"

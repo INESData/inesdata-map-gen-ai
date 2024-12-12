@@ -31,11 +31,10 @@ De esta forma, el módulo `gen_ai_mapping` se encarga de:
 Este paquete se ejecutaría de la siguiente forma:
 
 ```bash
-python3 -m gen_ai_mapping -exp 1 -ds [29] -o [1]
+python3 -m gen_ai_mapping -ds [29] -o [1]
 ```
 
 Los argumentos son los siguientes:
 
-- `experiment_name` [`-exp`]: parámetro _obligatorio_ con el nombre o número del experimento que mejores resultados ha obtenido. Este experimento debe tener asociado un archivo `llm_params.json` con los parámetros de la ejecución, y otro fichero `prompt_template.py` con la prompt template a rellenar.
 - `data_sources` [`-ds`]: parámetro _obligatorio_ con el listado de identificadores de las fuentes de datos almacenadas en la base de datos del backend de la web de _INESDATA-MAP mapper_.
 - `ontologies` [`-o`]: parámetro _obligatorio_ con el listado de identificadores de las ontologías almacenadas en la base de datos del backend de la web de _INESDATA-MAP mapper_.
