@@ -4,6 +4,7 @@ import os
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from urllib.parse import parse_qs, urlparse
+from langchain.prompts import PromptTemplate
 
 import pandas as pd
 import requests

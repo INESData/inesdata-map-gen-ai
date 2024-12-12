@@ -4,7 +4,6 @@ import warnings
 
 import mlflow
 import requests
-from langchain.prompts import PromptTemplate
 
 from llm_metrics import get_rml_metrics, get_text_similarity
 from utils import (
