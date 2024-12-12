@@ -1,4 +1,3 @@
-import importlib
 import json
 import os
 import warnings
@@ -9,11 +8,9 @@ from langchain.prompts import PromptTemplate
 
 from llm_metrics import get_rml_metrics, get_text_similarity
 from utils import (
-    extract_ds_schemas,
     get_experiment_params,
+    get_experiment_prompt,
     get_token_kubeflow,
-    load_ontologies_rdf,
-    load_ontologies_str,
 )
 
 # Ignore all deprecation warnings
@@ -46,72 +43,33 @@ def get_llm_inference(prompt: str, experiment_params: dict):
     return output
 
 
-def get_experiment_prompt(
-    experiment_name: str,
-    experiment_params: dict,
-    data_sources_ids: list,
-    ontologies_ids: list,
-):
-    prompt_template_module = importlib.import_module(
-        "experiments." + experiment_name + ".prompt_template"
-    )
-
-    ds_schemas = extract_ds_schemas(data_sources_ids)
-
-    if eval(experiment_params["chunked"]):
-        ontologies = load_ontologies_rdf(ontologies_ids)
-        prompts = []
-        for ontology in ontologies:
-            for ontology_field in ontology:
-                prompt_template = prompt_template_module.get_prompt(
-                    ds_schemas, ontology_field
-                )
-                prompts.append(prompt_template)
-        print(f"{len(prompts)} prompts generated with chunking")
-        return prompts
-    else:
-        ontologies = load_ontologies_str(ontologies_ids)
-        prompt_template = prompt_template_module.get_prompt(ds_schemas, ontologies)
-
-    return prompt_template
-
-
-def get_experiment_prompt_txt(experiment_name: str):
-    with open(f"experiments/{experiment_name}/prompt_template.txt", "r") as file:
-        prompt_template = file.read()
-
-    prompt_template = PromptTemplate(
-        input_variables=["ontology", "data_source_schema"],
-        template=prompt_template,
-    )
-
-    return prompt_template
-
-
 def track_experiment(experiment_name: str, experiment_params: dict, prompt):
-    # Test the chain
-    mlflow.set_experiment(experiment_name + "_mlflow")
+    if experiment_name:
+        # Test the chain
+        mlflow.set_experiment(experiment_name + "_mlflow")
 
-    # Enable LangChain autologging
-    mlflow.langchain.autolog(log_models=True, log_input_examples=True)
+        # Enable LangChain autologging
+        mlflow.langchain.autolog(log_models=True, log_input_examples=True)
 
     with mlflow.start_run():
-        # Log params
-        mlflow.log_params(experiment_params)
-
+        metrics = {}
         # Perform LLM model inference
         result = get_llm_inference(prompt, experiment_params)
 
-        metrics = {}
-        path_expected_output_file = experiment_params["expected_result"]
-        if os.path.exists(path_expected_output_file):
-            with open(path_expected_output_file, "r") as f:
-                expected_result = f.read()
-            text_similarity = get_text_similarity(result, expected_result)
-            metrics.update({"text_similarity": text_similarity})
+        if experiment_name:
+            # Log params
+            mlflow.log_params(experiment_params)
 
-        # Log metrics
-        mlflow.log_metrics(metrics)
+            # Calculate metrics
+            path_expected_output_file = experiment_params["expected_result"]
+            if os.path.exists(path_expected_output_file):
+                with open(path_expected_output_file, "r") as f:
+                    expected_result = f.read()
+                text_similarity = get_text_similarity(result, expected_result)
+                metrics.update({"text_similarity": text_similarity})
+
+            # Log metrics
+            mlflow.log_metrics(metrics)
 
     return result, metrics
 
@@ -119,16 +77,22 @@ def track_experiment(experiment_name: str, experiment_params: dict, prompt):
 def get_inference(
     prompt_experiment_name: str, data_sources_ids: list, ontologies_ids: list
 ):
-    mlflow_uri = os.getenv("MLFLOW_URI")
-    mlflow.set_tracking_uri(mlflow_uri)
+    mlflow_uri = os.getenv("MLFLOW_URI", None)
+    if mlflow_uri:
+        mlflow.set_tracking_uri(mlflow_uri)
 
-    experiment_params = get_experiment_params(prompt_experiment_name)
+    if prompt_experiment_name:
+        experiment_path = f"experiments/{prompt_experiment_name}/"
+    else:
+        experiment_path = ""
 
-    if eval(experiment_params["chunked"]):  # todo
+    experiment_params = get_experiment_params(experiment_path)
+
+    if eval(experiment_params["chunked"]):
         results_array = []
         metrics_array = []
         prompt_templates = get_experiment_prompt(
-            prompt_experiment_name, experiment_params, data_sources_ids, ontologies_ids
+            experiment_path, experiment_params, data_sources_ids, ontologies_ids
         )
 
         for prompt_template in prompt_templates:
@@ -143,7 +107,7 @@ def get_inference(
         return "".join(results_array)
     else:
         prompt_template = get_experiment_prompt(
-            prompt_experiment_name, experiment_params, data_sources_ids, ontologies_ids
+            experiment_path, experiment_params, data_sources_ids, ontologies_ids
         )
         results, metrics = track_experiment(
             prompt_experiment_name, experiment_params, prompt_template
