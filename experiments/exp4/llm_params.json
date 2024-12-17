@@ -1,0 +1,12 @@
+{
+    "command": "python3 llm_chain/inference.py -exp 4",
+    "temp": 0,
+    "data_sources": ["data/input/datasources/imdb.csv"],
+    "ontologies": ["data/input/ontologies/imdb.ttl"],
+    "expected_result": "data/output/expected/imdb_expected_RML.rml",
+    "prompt_technique": "few-shot (ejemplo: people)",
+    "model": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GPTQ",
+    "model_id": "mixtral87b",
+    "chunked": "True",
+    "returnsRML": "True"
+}
