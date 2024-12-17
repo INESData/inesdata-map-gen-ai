@@ -1,2 +1,4 @@
 include requirements/requirements.txt
 include *.sh
+include gen_ai_mapping/*.json
+recursive-include gen_ai_mapping *.json
