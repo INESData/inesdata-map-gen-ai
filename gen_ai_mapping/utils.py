@@ -92,7 +92,6 @@ def load_ontologies_rdf(onto_ids: list):
             ontologies.append(ontology)
     except Exception as e:
         print(f"An error occurred loading the ontologies elements: {e}")
-        return None
 
     return ontologies
 
