@@ -85,13 +85,18 @@ def load_ontologies_str(onto_ids: list):
 def load_ontologies_rdf(onto_ids: list):
     ontologies = []
     ontologies_data = get_ontologies(onto_ids)
-    try:
+    try:  # rdf ontos
         for ontology_data in ontologies_data:
             graph = Graph()
-            ontology = graph.parse(data=ontology_data)
-            ontologies.append(ontology)
-    except Exception as e:
-        print(f"An error occurred loading the ontologies elements: {e}")
+            ontology_rdf_graph = graph.parse(data=ontology_data, format='xml')
+            ontologies.append(ontology_rdf_graph)
+    except Exception as e:  # owl ontos
+        try:
+            for ontology_data in ontologies_data:
+                ontology_chunks = [o for o in ontology_data.split(os.linesep * 2)]
+                ontologies.append(ontology_chunks)
+        except Exception as e:
+            print(f"An error occurred loading the ontologies elements: {e}")
 
     return ontologies
 
