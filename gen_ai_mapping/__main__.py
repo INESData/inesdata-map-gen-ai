@@ -33,12 +33,15 @@ def main():
         output_dir = "/home/mapper/output/gen-ai"
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
-            path_output_file = f"{output_dir}/exp{experiment_name}_output.ttl"
+        if experiment_name:
+            path_output_file = f"{output_dir}/exp{experiment_name}_llm_output.ttl"
+        else:
+            path_output_file = f"{output_dir}/llm_output.ttl"
 
-            with open(path_output_file, "w") as file:
-                file.write(output)
+        with open(path_output_file, "w") as file:
+            file.write(output)
     else:
-        print("error")
+        print("LLM error: no output generated")
     end = time.time()
     print(f"Execution time: {end - start}")
 
