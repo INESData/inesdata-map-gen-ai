@@ -160,9 +160,9 @@ def get_rml_metrics(mapping, llm_mapping):
        # Align the DataFrames by filling missing rows with NaN
        max_rows = max(rml_rows, llm_rows)
        if rml_rows < llm_rows:
-           rml_df = rml_df.reindex(range(max_rows)).fillna(np.nan).astype(str)
+           rml_df = rml_df.reindex(range(max_rows)).fillna(np.nan)
        else:
-           llm_df = llm_df.reindex(range(max_rows)).fillna(np.nan).astype(str) 
+           llm_df = llm_df.reindex(range(max_rows)).fillna(np.nan)
        print('Adjusted RML:')
        print(rml_df)
        print('Adjusted LLM:')
@@ -171,10 +171,10 @@ def get_rml_metrics(mapping, llm_mapping):
     for i in columns:
         print(f"COLUMN NAME: {i}")
         # striping blank spaces if present
-        llm_df[i] = llm_df[i].str.strip()
-        rml_df[i] = rml_df[i].str.strip()
+        llm_df[i] = llm_df[i].str.strip().astype(str)
+        rml_df[i] = rml_df[i].str.strip().astype(str)
         # print the Classification report
-        print(classification_report(llm_df[i], rml_df[i]))
+        print(classification_report( llm_df[i], rml_df[i] ))
         # compute F1-scores
         f1 = f1_score(llm_df[i], rml_df[i], average="weighted")
         # add it to the list
