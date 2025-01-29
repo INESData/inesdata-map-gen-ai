@@ -132,17 +132,18 @@ def get_rml_metrics(mapping, llm_mapping):
     # changing the column names to strings
     rml_df.columns = RML_COLS_STR
 
-    rows = len(rml_df.index)  # number of rows
-    # dropping last row which is unnecessary
-    rml_df.drop(index=rml_df.index[rows - 1], inplace=True)
-    # convert csv string into dataframe
+    rml_rows = rml_df.shape[0]  # number of rml_rows
+    # dropping last row which is not necessary
+    rml_df.drop(index=rml_df.index[rml_rows - 1], inplace=True)
+    rml_rows -= 1
+    # convert csv string into dataframe given by LLM
     llm_mapping = llm_mapping.strip()
     if len(llm_mapping) == 0:
         return 0
     llm = pd.read_csv(StringIO(llm_mapping), sep="|")
     # selecting the columns from llm df
     llm_df = llm[RML_COLS_STR].copy()
-
+    llm_rows = llm_df.shape[0]
     # printing the dataframes
     print("RML_DF:")
     print(rml_df)
@@ -152,15 +153,28 @@ def get_rml_metrics(mapping, llm_mapping):
 
     columns = list(rml_df)  # list all the columns
     f1_list = []
+    diff = abs(rml_rows - llm_rows)
+    print(f'Difference: {diff}')
 
+    if diff:
+       # Align the DataFrames by filling missing rows with NaN
+       max_rows = max(rml_rows, llm_rows)
+       if rml_rows < llm_rows:
+           rml_df = rml_df.reindex(range(max_rows)).fillna(np.nan)
+       else:
+           llm_df = llm_df.reindex(range(max_rows)).fillna(np.nan)
+       print('Adjusted RML:')
+       print(rml_df)
+       print('Adjusted LLM:')
+       print(llm_df)
     # comparing the sub-df and llm-df
     for i in columns:
         print(f"COLUMN NAME: {i}")
         # striping blank spaces if present
-        llm_df[i] = llm_df[i].str.strip()
-        rml_df[i] = rml_df[i].str.strip()
+        llm_df[i] = llm_df[i].str.strip().astype(str)
+        rml_df[i] = rml_df[i].str.strip().astype(str)
         # print the Classification report
-        print(classification_report(llm_df[i], rml_df[i]))
+        print(classification_report( llm_df[i], rml_df[i] ))
         # compute F1-scores
         f1 = f1_score(llm_df[i], rml_df[i], average="weighted")
         # add it to the list
