@@ -1,5 +1,7 @@
 import importlib
+from io import StringIO
 import json
+import numpy as np
 import os
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -11,6 +13,8 @@ import requests
 from bs4 import BeautifulSoup
 from rdflib import Graph
 from sqlalchemy import create_engine
+
+from llm_metrics import RML_COLS_STR
 
 
 def connect_to_db():
@@ -399,3 +403,85 @@ def parse_keycloak_url(url):
     }
 
     return parsed_data
+
+
+def store_llm_output(output, experiment_name):
+    if output:
+        output_dir = "/home/mapper/output/gen-ai"
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        if experiment_name:
+            path_output_file = f"{output_dir}/{experiment_name}_llm_output.ttl"
+        else:
+            path_output_file = f"{output_dir}/llm_output.ttl"
+
+        with open(path_output_file, "w") as file:
+            file.write(output)
+    else:
+        print("LLM error: no output generated")
+
+
+def get_llm_output_df(llm_output):
+    # convert csv string into dataframe given by LLM
+    llm_mapping = llm_output.strip()
+    llm = pd.read_csv(StringIO(llm_mapping), sep="|")
+    # selecting the columns from llm df
+    llm_df = llm[RML_COLS_STR].copy().drop_duplicates().dropna()
+    # striping blank spaces if present
+    llm_df = llm_df.apply(lambda row: row.str.replace("\\_", "").replace("NONE", np.nan).str.strip())
+    llm_df = llm_df.apply(lambda x: x.astype(str), axis=1).drop_duplicates().dropna()
+    
+    return llm_df
+
+
+def get_llm_output_objs(llm_output_dict):
+    objs = []
+    for llm_output_item in llm_output_dict:
+        obj = {
+            "key": llm_output_item["object_map_type"],
+            "literalValue": llm_output_item["object_map_value"],
+            "objectValue": []
+        }
+        objs.append(obj)
+    return objs
+
+
+def get_llm_output_preds(llm_output_dict):
+    preds = []
+    for llm_output_item in llm_output_dict:
+        predicate = {
+            "predicate": llm_output_item["predicate_map_value"],
+            "objectMap": get_llm_output_objs(llm_output_dict)
+        }
+        preds.append(predicate)
+    return preds
+
+
+def convert_to_web_format(llm_output, data_sources, ontologies):
+    data_sources = json.loads(data_sources)
+    llm_output_json = {
+        "name": "LLM mapping",
+        "ontologyIds": ontologies,
+    }
+    json_fields = []
+    try:
+        llm_output_df = get_llm_output_df(llm_output)
+        llm_output_dict = llm_output_df.to_dict(orient="records")
+        for ds_id in data_sources:
+            json_field = {
+                "dataSourceId": ds_id,
+                "logicalSource": {},
+                "subject": {},
+                "predicates": []
+            }
+            for llm_output_item in llm_output_dict:
+                json_field["logicalSource"]["source"] = llm_output_item["logical_source_value"]
+                json_field["logicalSource"]["referenceFormulation"] = llm_output_item["reference_formulation"]
+                json_field["logicalSource"]["iterator"] = llm_output_item["iterator"]
+                json_field["subject"]["className"] = llm_output_item["subject_map_value"]
+                json_field["predicates"] = get_llm_output_preds(llm_output_dict)
+                json_fields.append(json_field)
+        llm_output_json['fields'] = json_fields
+    except Exception as e:
+        print(e)
+    return llm_output_json
