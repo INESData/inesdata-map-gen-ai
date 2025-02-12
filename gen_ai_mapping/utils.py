@@ -55,16 +55,19 @@ def get_ontologies(ids):
 
         # Connect to the database and fetch the data into a DataFrame
         ids_str = str(ids).replace("[", "").replace("]", "")
-        query = f"select id, content from ontology where id in ({ids_str});"
+        query = f"select id, content, title, url from ontology where id in ({ids_str});"
         onto_df = pd.read_sql(query, connection)
 
         for index, row in onto_df.iterrows():
+            onto_data = {}
             # Obtén el OID del resultado
             oid = row["content"]
             # Obtener el Large Object usando el OID
             large_object = connection.lobject(oid)
             # Leer el contenido completo del Large Object
-            onto_data = large_object.read()
+            onto_data["data"] = large_object.read()
+            onto_data["name"] = row["title"]
+            onto_data["url"] = row["url"]
             ontologies_data.append(onto_data)
 
         return ontologies_data
@@ -79,7 +82,7 @@ def load_ontologies_str(onto_ids: list):
     ontologies_data = get_ontologies(onto_ids)
     try:
         for ontology_data in ontologies_data:
-            content += ontology_data
+            content += f"{ontology_data['name']}: {ontology_data['url']}\n{ontology_data['data']}\n\n"
         return content
     except Exception as e:
         print(f"An error occurred loading the ontologies content: {e}")
@@ -92,12 +95,14 @@ def load_ontologies_rdf(onto_ids: list):
     try:  # rdf ontos
         for ontology_data in ontologies_data:
             graph = Graph()
-            ontology_rdf_graph = graph.parse(data=ontology_data, format='xml')
+            ontology_rdf_graph = graph.parse(data=ontology_data["data"], format="xml")
             ontologies.append(ontology_rdf_graph)
     except Exception as e:  # owl ontos
         try:
             for ontology_data in ontologies_data:
-                ontology_chunks = [o for o in ontology_data.split(os.linesep * 2)]
+                ontology_chunks = [
+                    o for o in ontology_data["data"].split(os.linesep * 2)
+                ]
                 ontologies.append(ontology_chunks)
         except Exception as e:
             print(f"An error occurred loading the ontologies elements: {e}")
@@ -146,22 +151,26 @@ def get_data_sources(ids: list):
 
 
 def extract_ds_schemas(ds_ids: list):
-    ds_schemas = []
+    ds_schemas_data = []
     ds_filenames = get_data_sources(ds_ids)
     try:
         for ds_filename in ds_filenames:
+            ds_schema_data = {}
+            ds_schema_data["filename"] = ds_filename
             ds_filetype = ds_filename.split(".")[-1]
             # Extract the data soruce schema
             if ds_filetype == "csv":
-                ds_schema = extract_schema_csv(ds_filename)
+                ds_schema_data["schema"] = extract_schema_csv(ds_filename)
             elif ds_filetype == "xml":
-                ds_schema = extract_schema_xml(ds_filename)
+                ds_schema_data["schema"] = extract_schema_xml(ds_filename)
             elif ds_filetype == "json":
-                ds_schema = extract_schema_json(ds_filename)
+                ds_schema_data["schema"] = extract_schema_json(ds_filename)
             else:
-                ds_schema = None
-            ds_schemas.append(",".join(ds_schema))
-        return "/n".join(ds_schemas)
+                ds_schema_data["schema"] = None
+            ds_schemas_data.append(
+                f"{ds_schema_data['filename']}: {','.join(ds_schema_data['schema'])}"
+            )
+        return "/n".join(ds_schemas_data)
     except Exception as e:
         print(f"An error occurred loading the data sources schemas: {e}")
         return None

@@ -1,6 +1,6 @@
 def get_prompt(data_source_schema, ontology):
     prompt = f"""
-    [INST] 
+        [INST] 
     You are a highly experienced expert in Semantic Web technologies, specifically in RDF Data Transformation. Your task is to analyze a provided ontology and a data source schema, and generate the corresponding RML (RDF Mapping Language) mapping rules. The output must be in a predefined, structured tabular format, which you must strictly follow.
 
     ### TASK:
@@ -26,7 +26,7 @@ def get_prompt(data_source_schema, ontology):
     - The ontology of the subject can be different from the ontologies of the rest of the predicates.
     - RDF predicates must be selected from one of the ontologies and correctly linked to the subject.
     - The object can be a reference to a column or a constant value.
-    - The output must be formatted in CSV string format, separated by a pipe |, and enclosed      within <csv> tags. The first row should be column headers, followed by the mapping rules.
+    - The output must be formatted in CSV string format, separated by a pipe |. The first row should be column headers, followed by the mapping rules.
     - Map columns correctly by ensuring the correct data types (e.g., integers, literals).
     - Do not modify or add any extra rows or columns in the CSV output.
 
@@ -60,24 +60,21 @@ def get_prompt(data_source_schema, ontology):
             id,name,location,airport_code
 
         ### Output:
-        This is the output you would expect after processing the data source and ontology according to the RML mapping rules. The output should be in CSV format, inside <csv> tags.
-            <csv>
+        This is the output you would expect after processing the data source and ontology according to the RML mapping rules. The output should be in CSV format.
             logical_source_value|reference_formulation|iterator|subject_map_value|subject_ontology|predicate_map_type|predicate_map_value|predicate_ontology|object_map_type|object_map_value
             airport.csv|csv|/rows/row|Airport|airports.ttl|rml:reference|ex:hasName|airports.ttl|rdfs:Literal|name
             airport.csv|csv|/rows/row|Airport|airports.ttl|rml:reference|ex:hasLocation|airports.ttl|rdfs:Literal|location
             airport.csv|csv|/rows/row|Airport|airports.ttl|rml:reference|ex:hasAirportCode|airports.ttl|rdfs:Literal|airport_code
-            </csv>
 
 
-        ### INPUT:
-        Here is the required input of the user:
-            #### Ontologies:
-            {ontology}
-    
-            #### Data source schema:
-            {data_source_schema}
-            
+    ### INPUT:
+    Here is the required input of the user:
+        #### Ontologies:
+        {ontology}
+   
+        #### Data source schema:
+        {data_source_schema}
 
-    [/INST]
+        [/INST]
     """
     return prompt

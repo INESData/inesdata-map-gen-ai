@@ -1,0 +1,12 @@
+{
+    "command": "python3 llm_chain/inference.py -exp 8",
+    "temp": 0,
+    "data_sources": [121],
+    "ontologies": [40],
+    "expected_result": "data/output/expected/people_expected_RML.rml",
+    "prompt_technique": "zero-shot",
+    "model": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GPTQ",
+    "model_id": "mixtral87b",
+    "chunked": "False",
+    "returnsRML": "False"
+}
