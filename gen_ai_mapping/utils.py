@@ -1,5 +1,7 @@
 import importlib
+from io import StringIO
 import json
+import numpy as np
 import os
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -11,6 +13,8 @@ import requests
 from bs4 import BeautifulSoup
 from rdflib import Graph
 from sqlalchemy import create_engine
+
+from llm_metrics import RML_COLS_STR
 
 
 def connect_to_db():
@@ -51,16 +55,19 @@ def get_ontologies(ids):
 
         # Connect to the database and fetch the data into a DataFrame
         ids_str = str(ids).replace("[", "").replace("]", "")
-        query = f"select id, content from ontology where id in ({ids_str});"
+        query = f"select id, content, title, url from ontology where id in ({ids_str});"
         onto_df = pd.read_sql(query, connection)
 
         for index, row in onto_df.iterrows():
+            onto_data = {}
             # Obtén el OID del resultado
             oid = row["content"]
             # Obtener el Large Object usando el OID
             large_object = connection.lobject(oid)
             # Leer el contenido completo del Large Object
-            onto_data = large_object.read()
+            onto_data["data"] = large_object.read()
+            onto_data["name"] = row["title"]
+            onto_data["url"] = row["url"]
             ontologies_data.append(onto_data)
 
         return ontologies_data
@@ -75,7 +82,7 @@ def load_ontologies_str(onto_ids: list):
     ontologies_data = get_ontologies(onto_ids)
     try:
         for ontology_data in ontologies_data:
-            content += ontology_data
+            content += f"{ontology_data['name']}: {ontology_data['url']}\n{ontology_data['data']}\n\n"
         return content
     except Exception as e:
         print(f"An error occurred loading the ontologies content: {e}")
@@ -85,14 +92,20 @@ def load_ontologies_str(onto_ids: list):
 def load_ontologies_rdf(onto_ids: list):
     ontologies = []
     ontologies_data = get_ontologies(onto_ids)
-    try:
+    try:  # rdf ontos
         for ontology_data in ontologies_data:
             graph = Graph()
-            ontology = graph.parse(data=ontology_data)
-            ontologies.append(ontology)
-    except Exception as e:
-        print(f"An error occurred loading the ontologies elements: {e}")
-        return None
+            ontology_rdf_graph = graph.parse(data=ontology_data["data"], format="xml")
+            ontologies.append(ontology_rdf_graph)
+    except Exception as e:  # owl ontos
+        try:
+            for ontology_data in ontologies_data:
+                ontology_chunks = [
+                    o for o in ontology_data["data"].split(os.linesep * 2)
+                ]
+                ontologies.append(ontology_chunks)
+        except Exception as e:
+            print(f"An error occurred loading the ontologies elements: {e}")
 
     return ontologies
 
@@ -138,22 +151,26 @@ def get_data_sources(ids: list):
 
 
 def extract_ds_schemas(ds_ids: list):
-    ds_schemas = []
+    ds_schemas_data = []
     ds_filenames = get_data_sources(ds_ids)
     try:
         for ds_filename in ds_filenames:
+            ds_schema_data = {}
+            ds_schema_data["filename"] = ds_filename
             ds_filetype = ds_filename.split(".")[-1]
             # Extract the data soruce schema
             if ds_filetype == "csv":
-                ds_schema = extract_schema_csv(ds_filename)
+                ds_schema_data["schema"] = extract_schema_csv(ds_filename)
             elif ds_filetype == "xml":
-                ds_schema = extract_schema_xml(ds_filename)
+                ds_schema_data["schema"] = extract_schema_xml(ds_filename)
             elif ds_filetype == "json":
-                ds_schema = extract_schema_json(ds_filename)
+                ds_schema_data["schema"] = extract_schema_json(ds_filename)
             else:
-                ds_schema = None
-            ds_schemas.append(",".join(ds_schema))
-        return "/n".join(ds_schemas)
+                ds_schema_data["schema"] = None
+            ds_schemas_data.append(
+                f"{ds_schema_data['filename']}: {','.join(ds_schema_data['schema'])}"
+            )
+        return "/n".join(ds_schemas_data)
     except Exception as e:
         print(f"An error occurred loading the data sources schemas: {e}")
         return None
@@ -395,3 +412,85 @@ def parse_keycloak_url(url):
     }
 
     return parsed_data
+
+
+def store_llm_output(output, experiment_name):
+    if output:
+        output_dir = "/home/mapper/output/gen-ai"
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        if experiment_name:
+            path_output_file = f"{output_dir}/{experiment_name}_llm_output.ttl"
+        else:
+            path_output_file = f"{output_dir}/llm_output.ttl"
+
+        with open(path_output_file, "w") as file:
+            file.write(output)
+    else:
+        print("LLM error: no output generated")
+
+
+def get_llm_output_df(llm_output):
+    # convert csv string into dataframe given by LLM
+    llm_mapping = llm_output.strip().replace("\\", "")
+    llm = pd.read_csv(StringIO(llm_mapping), sep="|")
+    # selecting the columns from llm df
+    llm_df = llm[RML_COLS_STR].copy().drop_duplicates().dropna()
+    # striping blank spaces if present
+    llm_df = llm_df.apply(lambda row: row.str.replace("\\_", "").replace("NONE", np.nan).str.strip())
+    llm_df = llm_df.apply(lambda x: x.astype(str), axis=1).drop_duplicates().dropna()
+    
+    return llm_df
+
+
+def get_llm_output_objs(llm_output_dict):
+    objs = []
+    for llm_output_item in llm_output_dict:
+        obj = {
+            "key": llm_output_item["object_map_type"],
+            "literalValue": llm_output_item["object_map_value"],
+            "objectValue": []
+        }
+        objs.append(obj)
+    return objs
+
+
+def get_llm_output_preds(llm_output_dict):
+    preds = []
+    for llm_output_item in llm_output_dict:
+        predicate = {
+            "predicate": llm_output_item["predicate_map_value"],
+            "objectMap": get_llm_output_objs(llm_output_dict)
+        }
+        preds.append(predicate)
+    return preds
+
+
+def convert_to_web_format(llm_output, data_sources, ontologies):
+    data_sources = json.loads(data_sources)
+    llm_output_json = {
+        "name": "LLM mapping",
+        "ontologyIds": ontologies,
+    }
+    json_fields = []
+    try:
+        llm_output_df = get_llm_output_df(llm_output)
+        llm_output_dict = llm_output_df.to_dict(orient="records")
+        for ds_id in data_sources:
+            json_field = {
+                "dataSourceId": ds_id,
+                "logicalSource": {},
+                "subject": {},
+                "predicates": []
+            }
+            for llm_output_item in llm_output_dict:
+                json_field["logicalSource"]["source"] = llm_output_item["logical_source_value"]
+                json_field["logicalSource"]["referenceFormulation"] = llm_output_item["reference_formulation"]
+                json_field["logicalSource"]["iterator"] = llm_output_item["iterator"]
+                json_field["subject"]["className"] = llm_output_item["subject_map_value"]
+                json_field["predicates"] = get_llm_output_preds(llm_output_dict)
+                json_fields.append(json_field)
+        llm_output_json['fields'] = json_fields
+    except Exception as e:
+        print(e)
+    return llm_output_json
