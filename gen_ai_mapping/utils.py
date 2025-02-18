@@ -432,7 +432,7 @@ def store_llm_output(output, experiment_name):
 
 def get_llm_output_df(llm_output):
     # convert csv string into dataframe given by LLM
-    llm_mapping = llm_output.strip()
+    llm_mapping = llm_output.strip().replace("\\", "")
     llm = pd.read_csv(StringIO(llm_mapping), sep="|")
     # selecting the columns from llm df
     llm_df = llm[RML_COLS_STR].copy().drop_duplicates().dropna()
