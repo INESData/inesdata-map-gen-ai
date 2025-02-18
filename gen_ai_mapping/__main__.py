@@ -6,6 +6,7 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from inference import get_inference
+from utils import store_llm_output, convert_to_web_format
 
 
 def main():
@@ -29,18 +30,15 @@ def main():
 
     output = get_inference(experiment_name, data_sources, ontologies)
 
-    if output:
-        output_dir = "/home/mapper/output/gen-ai"
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-            path_output_file = f"{output_dir}/exp{experiment_name}_output.ttl"
+    store_llm_output(output, experiment_name)
 
-            with open(path_output_file, "w") as file:
-                file.write(output)
-    else:
-        print("error")
+    web_formatted_output = convert_to_web_format(output, data_sources, ontologies)
+    print(web_formatted_output)
+
     end = time.time()
     print(f"Execution time: {end - start}")
+
+    return web_formatted_output
 
 
 if __name__ == "__main__":
