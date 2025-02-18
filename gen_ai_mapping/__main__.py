@@ -33,6 +33,7 @@ def main():
     store_llm_output(output, experiment_name)
 
     web_formatted_output = convert_to_web_format(output, data_sources, ontologies)
+    print(web_formatted_output)
 
     end = time.time()
     print(f"Execution time: {end - start}")
