@@ -6,7 +6,7 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from inference import get_inference
-from utils import store_llm_output, convert_to_web_format
+from utils import store_llm_output, convert_to_web_format, store_llm_output_json
 
 
 def main():
@@ -34,6 +34,7 @@ def main():
 
     web_formatted_output = convert_to_web_format(output, data_sources, ontologies)
     print(web_formatted_output)
+    store_llm_output_json(web_formatted_output, experiment_name)
 
     end = time.time()
     print(f"Execution time: {end - start}")

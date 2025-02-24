@@ -416,13 +416,13 @@ def parse_keycloak_url(url):
 
 def store_llm_output(output, experiment_name):
     if output:
-        output_dir = "/home/mapper/output/gen-ai"
+        output_dir = os.getenv("APP_DATAPROCESSINGPATH") + "/output/gen-ai"
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         if experiment_name:
-            path_output_file = f"{output_dir}/{experiment_name}_llm_output.ttl"
+            path_output_file = f"{output_dir}/{experiment_name}_llm_output.csv"
         else:
-            path_output_file = f"{output_dir}/llm_output.ttl"
+            path_output_file = f"{output_dir}/llm_output.csv"
 
         with open(path_output_file, "w") as file:
             file.write(output)
@@ -494,3 +494,20 @@ def convert_to_web_format(llm_output, data_sources, ontologies):
     except Exception as e:
         print(e)
     return llm_output_json
+
+
+
+def store_llm_output_json(output, experiment_name):
+    if output:
+        output_dir = os.getenv("APP_DATAPROCESSINGPATH") + "/output/gen-ai"
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        if experiment_name:
+            path_output_file = f"{output_dir}/{experiment_name}_llm_output.json"
+        else:
+            path_output_file = f"{output_dir}/llm_output.json"
+
+        with open(path_output_file, "w") as file:
+            json.dump(output, file)
+    else:
+        print("LLM error: no json output generated")
