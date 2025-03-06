@@ -3,6 +3,8 @@ from io import StringIO
 import json
 import numpy as np
 import os
+import ast
+import traceback
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from urllib.parse import parse_qs, urlparse
@@ -31,6 +33,7 @@ def connect_to_db():
         return engine
     except Exception as e:
         print(f"An error occurred connecting to INESDATA-MAP DB: {e}")
+        print(traceback.format_exc())
         return None
 
 
@@ -74,6 +77,7 @@ def get_ontologies(ids):
 
     except Exception as e:
         print(f"An error occurred loading the ontologies: {e}")
+        print(traceback.format_exc())
         return None
 
 
@@ -82,30 +86,40 @@ def load_ontologies_str(onto_ids: list):
     ontologies_data = get_ontologies(onto_ids)
     try:
         for ontology_data in ontologies_data:
-            content += f"{ontology_data['name']}: {ontology_data['url']}\n{ontology_data['data']}\n\n"
+            content += (
+                f"{ontology_data['name']}: {ontology_data['url']}\n{ontology_data['data']}\n\n"
+            )
         return content
     except Exception as e:
         print(f"An error occurred loading the ontologies content: {e}")
+        print(traceback.format_exc())
         return None
 
 
-def load_ontologies_rdf(onto_ids: list):
-    ontologies = []
-    ontologies_data = get_ontologies(onto_ids)
+def read_ontology_rdf(ontology_data):
     try:  # rdf ontos
-        for ontology_data in ontologies_data:
-            graph = Graph()
-            ontology_rdf_graph = graph.parse(data=ontology_data["data"], format="xml")
-            ontologies.append(ontology_rdf_graph)
+        graph = Graph()
+        ontology_rdf_graph = graph.parse(data=ontology_data, format="xml")
+        return ontology_rdf_graph
     except Exception as e:  # owl ontos
         try:
-            for ontology_data in ontologies_data:
-                ontology_chunks = [
-                    o for o in ontology_data["data"].split(os.linesep * 2)
-                ]
-                ontologies.append(ontology_chunks)
+            ontology_chunks = [o for o in ontology_data.split(os.linesep * 2)]
+            return ontology_chunks
         except Exception as e:
             print(f"An error occurred loading the ontologies elements: {e}")
+            print(traceback.format_exc())
+
+
+def load_ontologies_list(onto_ids: list):
+    ontologies = []
+    ontologies_data = get_ontologies(onto_ids)
+    try:
+        for ontology_data in ontologies_data:
+            ontology = f"{ontology_data['name']}:\n{ontology_data['url']}\n{ontology_data['data']}"
+            ontologies.append(ontology)
+    except Exception as e:
+        print(f"An error occurred loading the ontologies list: {e}")
+        print(traceback.format_exc())
 
     return ontologies
 
@@ -130,9 +144,7 @@ def get_data_sources(ids: list):
 
         # Connect to the database and fetch the data into a DataFrame
         ids_str = str(ids).replace("[", "").replace("]", "")
-        query = (
-            f"select id, file_name, file_path from data_source where id in ({ids_str});"
-        )
+        query = f"select id, file_name, file_path from data_source where id in ({ids_str});"
         ds_df = pd.read_sql(query, connection)
 
         for index, row in ds_df.iterrows():
@@ -147,6 +159,7 @@ def get_data_sources(ids: list):
 
     except Exception as e:
         print(f"An error occurred loading the data sources: {e}")
+        print(traceback.format_exc())
         return None
 
 
@@ -173,6 +186,7 @@ def extract_ds_schemas(ds_ids: list):
         return "/n".join(ds_schemas_data)
     except Exception as e:
         print(f"An error occurred loading the data sources schemas: {e}")
+        print(traceback.format_exc())
         return None
 
 
@@ -269,20 +283,17 @@ def get_experiment_prompt(
         experiments_module_path = experiment_path.replace("/", ".")
     else:
         experiments_module_path = ""
-    prompt_template_module = importlib.import_module(
-        experiments_module_path + "prompt_template"
-    )
+    prompt_template_module = importlib.import_module(experiments_module_path + "prompt_template")
 
     ds_schemas = extract_ds_schemas(data_sources_ids)
 
     if eval(experiment_params["chunked"]):
-        ontologies = load_ontologies_rdf(ontologies_ids)
+        ontologies = load_ontologies_list(ontologies_ids)
         prompts = []
         for ontology in ontologies:
-            for ontology_field in ontology:
-                prompt_template = prompt_template_module.get_prompt(
-                    ds_schemas, ontology_field
-                )
+            ontology_elements = read_ontology_rdf(ontology)
+            for ontology_element in ontology_elements:
+                prompt_template = prompt_template_module.get_prompt(ds_schemas, ontology_element)
                 prompts.append(prompt_template)
         print(f"{len(prompts)} prompts generated with chunking")
         return prompts
@@ -303,6 +314,21 @@ def get_experiment_prompt_txt(experiment_path: str):
     )
 
     return prompt_template
+
+
+def join_chunking_results(results_array):
+    results_df = pd.DataFrame([])
+    for result in results_array:
+        # convert csv string into dataframe given by LLM
+        llm_output_df = get_llm_output_df(result)
+        results_df = pd.concat([results_df, llm_output_df], axis=0, ignore_index=True)
+    results_df = results_df.drop_duplicates().dropna()
+    # Convert df to str
+    results_str = StringIO()
+    results_df.to_csv(results_str, sep="|", index=False)
+    print(results_str.getvalue())
+
+    return results_str.getvalue()
 
 
 def get_token_kubeflow():
@@ -367,9 +393,7 @@ def extract_new_token(username, password):
 
     # 2. Extract the login form (assuming there's a form with username and password fields)
     login_form = soup.find("form")
-    login_url = login_form[
-        "action"
-    ]  # URL to send login data (probably within Keycloak)
+    login_url = login_form["action"]  # URL to send login data (probably within Keycloak)
 
     # Credentials (input in the form)
     login_data = {"username": username, "password": password}
@@ -416,42 +440,56 @@ def parse_keycloak_url(url):
 
 def store_llm_output(output, experiment_name):
     if output:
-        output_dir = "/home/mapper/output/gen-ai"
+        output_dir = os.getenv("APP_DATAPROCESSINGPATH") + "/output/gen-ai"
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         if experiment_name:
-            path_output_file = f"{output_dir}/{experiment_name}_llm_output.ttl"
+            path_output_file = f"{output_dir}/{experiment_name}_llm_output.csv"
         else:
-            path_output_file = f"{output_dir}/llm_output.ttl"
+            path_output_file = f"{output_dir}/llm_output.csv"
 
         with open(path_output_file, "w") as file:
             file.write(output)
     else:
         print("LLM error: no output generated")
+        print(traceback.format_exc())
 
 
 def get_llm_output_df(llm_output):
-    # convert csv string into dataframe given by LLM
-    llm_mapping = llm_output.strip().replace("\\", "")
-    llm = pd.read_csv(StringIO(llm_mapping), sep="|")
-    # selecting the columns from llm df
-    llm_df = llm[RML_COLS_STR].copy().drop_duplicates().dropna()
-    # striping blank spaces if present
-    llm_df = llm_df.apply(lambda row: row.str.replace("\\_", "").replace("NONE", np.nan).str.strip())
-    llm_df = llm_df.apply(lambda x: x.astype(str), axis=1).drop_duplicates().dropna()
-    
+    llm_df = None
+    try:
+        # convert csv string into dataframe given by LLM
+        llm_mapping = llm_output.strip().replace("\\", "")
+        llm = pd.read_csv(StringIO(llm_mapping), sep="|", on_bad_lines="warn")
+        # selecting the columns from llm df
+        llm_df = llm[RML_COLS_STR + ["subject_template"]].copy().drop_duplicates().dropna()
+        # striping blank spaces if present
+        llm_df = llm_df.apply(
+            lambda row: row.str.replace("\\_", "").replace("NONE", np.nan).str.strip()
+        )
+        llm_df = llm_df.apply(lambda x: x.astype(str), axis=1).drop_duplicates().dropna()
+    except Exception as e:
+        print(e)
+        print(traceback.format_exc())
+
     return llm_df
 
 
-def get_llm_output_objs(llm_output_dict):
-    objs = []
-    for llm_output_item in llm_output_dict:
-        obj = {
-            "key": llm_output_item["object_map_type"],
+def get_llm_output_objs(llm_output_item):
+    objs = [
+        {
+            "key": llm_output_item["predicate_map_type"],
             "literalValue": llm_output_item["object_map_value"],
-            "objectValue": []
-        }
-        objs.append(obj)
+        },
+        {
+            "key": "rml:termtype",
+            "literalValue": llm_output_item["object_termtype"],
+        },
+        {
+            "key": "rml:datatype",
+            "literalValue": llm_output_item["object_map_type"],
+        },
+    ]
     return objs
 
 
@@ -460,7 +498,7 @@ def get_llm_output_preds(llm_output_dict):
     for llm_output_item in llm_output_dict:
         predicate = {
             "predicate": llm_output_item["predicate_map_value"],
-            "objectMap": get_llm_output_objs(llm_output_dict)
+            "objectMap": get_llm_output_objs(llm_output_item),
         }
         preds.append(predicate)
     return preds
@@ -470,27 +508,56 @@ def convert_to_web_format(llm_output, data_sources, ontologies):
     data_sources = json.loads(data_sources)
     llm_output_json = {
         "name": "LLM mapping",
-        "ontologyIds": ontologies,
+        "ontologyIds": ast.literal_eval(ontologies),
     }
     json_fields = []
     try:
         llm_output_df = get_llm_output_df(llm_output)
-        llm_output_dict = llm_output_df.to_dict(orient="records")
+        # add ds_id column to llm df
+        try:
+            llm_output_df["logical_source_id"] = (
+                llm_output_df["logical_source_value"].apply(lambda x: x.split("/")[-2]).values[0]
+            )
+        except Exception as e:
+            llm_output_df["logical_source_id"] = ""
         for ds_id in data_sources:
+            ds_llm_output_df = llm_output_df[
+                (llm_output_df["logical_source_id"] == str(ds_id))
+                | (llm_output_df["logical_source_id"] == "")
+            ]
+            ds_llm_output_dict = ds_llm_output_df.to_dict(orient="records")
             json_field = {
                 "dataSourceId": ds_id,
                 "logicalSource": {},
                 "subject": {},
-                "predicates": []
+                "predicates": [],
             }
-            for llm_output_item in llm_output_dict:
-                json_field["logicalSource"]["source"] = llm_output_item["logical_source_value"]
-                json_field["logicalSource"]["referenceFormulation"] = llm_output_item["reference_formulation"]
-                json_field["logicalSource"]["iterator"] = llm_output_item["iterator"]
-                json_field["subject"]["className"] = llm_output_item["subject_map_value"]
-                json_field["predicates"] = get_llm_output_preds(llm_output_dict)
+            if len(ds_llm_output_dict) > 0:
+                if ds_llm_output_dict[0]["reference_formulation"] != "csv":
+                    json_field["logicalSource"]["iterator"] = ds_llm_output_dict[0]["iterator"]
+                json_field["subject"]["template"] = ds_llm_output_dict[0]["subject_template"]
+                json_field["subject"]["className"] = ds_llm_output_dict[0]["subject_map_value"]
+                json_field["predicates"] = get_llm_output_preds(ds_llm_output_dict)
                 json_fields.append(json_field)
-        llm_output_json['fields'] = json_fields
+        llm_output_json["fields"] = json_fields
     except Exception as e:
         print(e)
+        print(traceback.format_exc())
     return llm_output_json
+
+
+def store_llm_output_json(output, experiment_name):
+    if output:
+        output_dir = os.getenv("APP_DATAPROCESSINGPATH") + "/output/gen-ai"
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        if experiment_name:
+            path_output_file = f"{output_dir}/{experiment_name}_llm_output.json"
+        else:
+            path_output_file = f"{output_dir}/llm_output.json"
+
+        with open(path_output_file, "w") as file:
+            json.dump(output, file)
+    else:
+        print("LLM error: no json output generated")
+        print(traceback.format_exc())
