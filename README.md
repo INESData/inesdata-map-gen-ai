@@ -24,14 +24,14 @@ De esta forma, el módulo `gen_ai_mapping` se encarga de:
 - `KUBEFLOW_USERNAME`
 - `KUBEFLOW_PASSWORD`
 
-4. Almacenamiento del **output resultante en disco**.
+4. Almacenamiento del **output resultante en disco**. Para ello es necesario la variable de entorno `APP_DATAPROCESSINGPATH`, que indica la ruta de guardado del output del paquete.
 
 ## Uso ▶️
 
 Este paquete se ejecutaría de la siguiente forma:
 
 ```bash
-python3 -m gen_ai_mapping -ds [29] -o [1]
+python3 -m gen_ai_mapping -ds [121] -o [40]
 ```
 
 Los argumentos son los siguientes:
