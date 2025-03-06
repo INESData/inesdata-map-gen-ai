@@ -10,6 +10,7 @@ from utils import (
     get_experiment_params,
     get_experiment_prompt,
     get_token_kubeflow,
+    join_chunking_results,
 )
 
 # Ignore all deprecation warnings
@@ -44,8 +45,10 @@ def get_llm_inference(prompt: str, experiment_params: dict):
 
 def track_experiment(experiment_name: str, experiment_params: dict, prompt):
     # Perform LLM model inference
+    print(prompt)
     result = get_llm_inference(prompt, experiment_params)
-    
+    result = result.strip()
+
     metrics = {}
 
     if experiment_name:
@@ -74,9 +77,7 @@ def track_experiment(experiment_name: str, experiment_params: dict, prompt):
     return result, metrics
 
 
-def get_inference(
-    prompt_experiment_name: str, data_sources_ids: list, ontologies_ids: list
-):
+def get_inference(prompt_experiment_name: str, data_sources_ids: list, ontologies_ids: list):
     mlflow_uri = os.getenv("MLFLOW_URI", None)
     if mlflow_uri:
         mlflow.set_tracking_uri(mlflow_uri)
@@ -102,9 +103,9 @@ def get_inference(
             results_array.append(results)
             metrics_array.append(metrics)
         print(results_array)
-        print(metrics_array)
+        joined_results_str = join_chunking_results(results_array)
 
-        return "".join(results_array)
+        return joined_results_str
     else:
         prompt_template = get_experiment_prompt(
             experiment_path, experiment_params, data_sources_ids, ontologies_ids
@@ -113,6 +114,5 @@ def get_inference(
             prompt_experiment_name, experiment_params, prompt_template
         )
         print(results)
-        print(metrics)
 
     return results
