@@ -33,6 +33,7 @@ RML_COLS = [
     rdflib.term.Variable("subject_map_value"),
     rdflib.term.Variable("predicate_map_type"),
     rdflib.term.Variable("predicate_map_value"),
+    rdflib.term.Variable("object_termtype"),
     rdflib.term.Variable("object_map_type"),
     rdflib.term.Variable("object_map_value"),
 ]
@@ -44,6 +45,7 @@ RML_COLS_STR = [
     "subject_map_value",
     "predicate_map_type",
     "predicate_map_value",
+    "object_termtype",
     "object_map_type",
     "object_map_value",
 ]
