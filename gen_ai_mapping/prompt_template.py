@@ -11,7 +11,7 @@ def get_prompt(data_source_schema, ontology):
     You must output a CSV string containing the following columns:
         1. logical_source_value: The name of the data source (usually the file name containing the data).
         2. reference_formulation: The format or reference type for the data source schema (e.g., "csv", "json").
-        3. iterator: The path for iterating over the data entries in the schema (e.g., "/rows/row").
+        3. iterator: The path for iterating over the data entries in the schema. If file type is csv, this column should be null. Normally the iterator is only used for json and xml files. In json for example, to access the data to be modelled, the iterator is: $.items[*].language[*].term_entries[?(@.type.name=='term')].
         4. subject_map_value: The subject class from the ontology (i.e., a unique identifier for the subject of RDF triples).
         5. subject_template: Subject template, conformed by base url of subject ontology, and a unique identifier for the subject of RDF triples, inside {{}}. Do not use prefixes, use the complete url (e.g., "http://example.org/airport/{{id}}").
         6. subject_ontology: The ontology of the subject class. Do not use prefixes, use the complete url (e.g., "http://example.org/Airport").
@@ -26,6 +26,7 @@ def get_prompt(data_source_schema, ontology):
     You should ensure the following:
     - Use dynamic URIs for subject and object maps wherever applicable.
     - Do not use prefixes abbreviatures for subject and predicates, user their corresponding URL instead. For example, if the subject is ex:Airport, use http://example.org/Airport.
+    - Use the correct ontology prefix URL, that depending on the format of the ontology may be stated differently. In .ttl format prefixes are stated like this:    @prefix ex: <http://example.org/> . In .rdf format prefixes are stated like this xmlns:ex="http://example.org/#.
     - The ontology of the subject can be different from the ontologies of the rest of the predicates.
     - RDF predicates must be selected from one of the ontologies and correctly linked to the subject.
     - The object can be a reference to a column or a constant value.
@@ -64,9 +65,9 @@ def get_prompt(data_source_schema, ontology):
 
         ### Output:
         logical_source_value|reference_formulation|iterator|subject_map_value|subject_template|subject_ontology|predicate_map_type|predicate_map_value|predicate_ontology|object_termtype|object_map_type|object_map_value
-        airport.csv|csv|/rows/row|http://example.org/Airport|http://example.org/airport/{{id}}|airports.ttl|rml:reference|http://example.org/hasName|airports.ttl|rml:Literal|xsd:string|name
-        airport.csv|csv|/rows/row|http://example.org/Airport|http://example.org/airport/{{id}}|airports.ttl|rml:reference|http://example.org/hasLocation|airports.ttl|rml:Literal|xsd:string|location
-        airport.csv|csv|/rows/row|http://example.org/Airport|http://example.org/airport/{{id}}|airports.ttl|rml:reference|http://example.org/hasAirportCode|airports.ttl|rml:Literal|xsd:integer|airport_code
+        airport.csv|csv|null|http://example.org/Airport|http://example.org/airport/{{id}}|airports.ttl|rml:reference|http://example.org/hasName|airports.ttl|rml:Literal|xsd:string|name
+        airport.csv|csv|null|http://example.org/Airport|http://example.org/airport/{{id}}|airports.ttl|rml:reference|http://example.org/hasLocation|airports.ttl|rml:Literal|xsd:string|location
+        airport.csv|csv|null|http://example.org/Airport|http://example.org/airport/{{id}}|airports.ttl|rml:reference|http://example.org/hasAirportCode|airports.ttl|rml:Literal|xsd:integer|airport_code
 
 
         ### INPUT:
