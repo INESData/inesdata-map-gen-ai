@@ -6,7 +6,7 @@
     "expected_result": "data/output/expected/people_expected_RML.rml",
     "prompt_technique": "zero-shot",
     "model": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GPTQ",
-    "model_id": "mixtral87b",
+    "model_id": "gpt-4o-mini",
     "chunked": "True",
     "returnsRML": "False"
 }
