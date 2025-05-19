@@ -43,7 +43,7 @@ def get_llm_inference(prompt: str, experiment_params: dict):
 
     response = requests.post(llm_url, headers=headers, json=json_data, verify=False)
     json_out = json.loads(response.content)
-    output = json_out["choices"][0]["text"]
+    output = json_out["choices"][0]["message"]["content"]
     print(output)
 
     return output

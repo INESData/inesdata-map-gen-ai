@@ -462,12 +462,12 @@ def get_llm_output_df(llm_output):
         llm_mapping = llm_output.strip().replace("\\", "")
         llm = pd.read_csv(StringIO(llm_mapping), sep="|", on_bad_lines="warn")
         # selecting the columns from llm df
-        llm_df = llm[RML_COLS_STR + ["subject_template"]].copy().drop_duplicates().dropna()
+        llm_df = llm[RML_COLS_STR + ["subject_template"]].copy().drop_duplicates(ignore_index=True).dropna(how="all")
         # striping blank spaces if present
+        llm_df = llm_df.apply(lambda x: x.astype(str), axis=1).drop_duplicates(ignore_index=True).dropna(how="all")
         llm_df = llm_df.apply(
             lambda row: row.str.replace("\\_", "").replace("NONE", np.nan).str.strip()
         )
-        llm_df = llm_df.apply(lambda x: x.astype(str), axis=1).drop_duplicates().dropna()
     except Exception as e:
         print(e)
         print(traceback.format_exc())
