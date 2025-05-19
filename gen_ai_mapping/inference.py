@@ -4,7 +4,6 @@ import warnings
 
 import mlflow
 import requests
-from openai import AzureOpenAI
 
 from llm_metrics import get_rml_metrics, get_text_similarity
 from utils import (
@@ -19,32 +18,36 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 def get_llm_inference(prompt: str, experiment_params: dict):
-    llm_url = os.getenv("AZURE_LLM_ENDPOINT")
+    model = experiment_params["model_id"]
+    llm_url = os.getenv("AZURE_LLM_ENDPOINT") + f"{model}/chat/completions?api-version=2024-12-01-preview"
     azure_api_key = os.getenv("AZURE_API_KEY")
     
-    client = AzureOpenAI(
-        api_version="2024-12-01-preview",
-        azure_endpoint=llm_url,
-        api_key=azure_api_key
-    )
-    
-    response = client.chat.completions.create(
-        messages=[
+    headers = {
+        "api-key": azure_api_key,
+        "Content-Type": "application/json",
+    }
+
+    json_data = {
+        "messages": [
             {
                 "role": "system",
-                "content": prompt,
-            },
+                "content": prompt
+            }
         ],
-        max_tokens=4096,
-        temperature=experiment_params["temp"],
-        top_p=1.0,
-        model=experiment_params["model_id"],
-    )
-    
-    output = response.choices[0].message.content
+        "top_p": 1.0,
+        "model": model,
+        "temperature": experiment_params["temp"],
+        "stream": False,
+        "max_tokens": 1000,
+    }
+
+    response = requests.post(llm_url, headers=headers, json=json_data, verify=False)
+    json_out = json.loads(response.content)
+    output = json_out["choices"][0]["text"]
     print(output)
 
     return output
+
 
 
 def track_experiment(experiment_name: str, experiment_params: dict, prompt):
