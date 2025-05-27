@@ -24,6 +24,11 @@ De esta forma, el módulo `gen_ai_mapping` se encarga de:
 - `KUBEFLOW_USERNAME`
 - `KUBEFLOW_PASSWORD`
 
+**NOTA**. Si se desea probar otro modelo desplegado en otra nube (tenemos un ejemplo con **Azure OpenAI**):
+- Se debería borrar la variable de entorno de Kubeflow `KUBEFLOW_LLM_ENDPOINT` y crear las nuevas variables `AZURE_LLM_ENDPOINT` y `AZURE_API_KEY` con las credenciales de Azure.
+- Por último, se deberían cambiar los parámetros del experimento (`llm_params.json`) para llamar al modelo desplegado en Azure (cambiar línea `"model_id": "gpt-4o-mini"`,).
+
+\
 4. Almacenamiento del **output resultante en disco**. Para ello es necesario la variable de entorno `APP_DATAPROCESSINGPATH`, que indica la ruta de guardado del output del paquete.
 
 ## Uso ▶️
