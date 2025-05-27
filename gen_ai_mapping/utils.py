@@ -9,8 +9,9 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from urllib.parse import parse_qs, urlparse
 from langchain.prompts import PromptTemplate
-
+import mysql.connector
 import pandas as pd
+import psycopg2
 import requests
 from bs4 import BeautifulSoup
 from rdflib import Graph
@@ -124,7 +125,7 @@ def load_ontologies_list(onto_ids: list):
     return ontologies
 
 
-def get_data_sources(ids: list):
+def get_data_sources_df(ids: list):
     """
     Connects to INESDATA-MAP PostgreSQL database and fetches data from data_source table.
 
@@ -132,9 +133,9 @@ def get_data_sources(ids: list):
         ids (list): ID's of specified data sources.
 
     Returns:
-        list: list of filenames of all specififed data sources.
+        DataFrame: a dataframe of all specififed data sources.
     """
-    ds_files = []
+    ds_df = pd.DataFrame([])
     # Connect to PostgreSQL database
     engine = connect_to_db()
 
@@ -144,18 +145,9 @@ def get_data_sources(ids: list):
 
         # Connect to the database and fetch the data into a DataFrame
         ids_str = str(ids).replace("[", "").replace("]", "")
-        query = f"select id, file_name, file_path from data_source where id in ({ids_str});"
+        query = f"select id, name, type, file_type, file_path, file_name, database_type, connection_string, user_name, password from data_source where id in ({ids_str});"
         ds_df = pd.read_sql(query, connection)
-
-        for index, row in ds_df.iterrows():
-            # Obtain file path
-            filepath = row["file_path"]
-            filename = row["file_name"]
-            # Obtain the file obj using the path
-            file = filepath + "/" + filename
-            ds_files.append(file)
-
-        return ds_files
+        return ds_df
 
     except Exception as e:
         print(f"An error occurred loading the data sources: {e}")
@@ -165,23 +157,43 @@ def get_data_sources(ids: list):
 
 def extract_ds_schemas(ds_ids: list):
     ds_schemas_data = []
-    ds_filenames = get_data_sources(ds_ids)
+    ds_df = get_data_sources_df(ds_ids)
     try:
-        for ds_filename in ds_filenames:
+        for ix, row in ds_df.iterrows():
             ds_schema_data = {}
-            ds_schema_data["filename"] = ds_filename
-            ds_filetype = ds_filename.split(".")[-1]
-            # Extract the data soruce schema
-            if ds_filetype == "csv":
-                ds_schema_data["schema"] = extract_schema_csv(ds_filename)
-            elif ds_filetype == "xml":
-                ds_schema_data["schema"] = extract_schema_xml(ds_filename)
-            elif ds_filetype == "json":
-                ds_schema_data["schema"] = extract_schema_json(ds_filename)
-            else:
-                ds_schema_data["schema"] = None
+            if row["type"] == 'FILE':
+                ds_filename = row["file_path"] + "/" + row["file_name"]
+                ds_schema_data["name"] = row["name"]
+                ds_filetype = row["file_type"].lower()
+                # Extract the data soruce schema
+                if ds_filetype == "csv":
+                    ds_schema_data["schema"] = extract_schema_csv(ds_filename)
+                elif ds_filetype == "xml":
+                    ds_schema_data["schema"] = extract_schema_xml(ds_filename)
+                elif ds_filetype == "json":
+                    ds_schema_data["schema"] = extract_schema_json(ds_filename)
+                else:
+                    ds_schema_data["schema"] = None
+            elif row["type"] == 'DATABASE':# Extract the database connection parameters
+                host, dbname = row["connection_string"].rsplit("/", 1)
+                host, port = host.rsplit(":", 1)
+                db_driver, host = host.split("://", 1)
+                db_params = {
+                    "host": host,
+                    "dbname": dbname,
+                    "user": row["user_name"],
+                    "password": row["password"],
+                    "port": port,
+                }
+                if row['database_type'] == 'POSTGRESQL':
+                    # Extract the schema from the database
+                    ds_schema_data["schema"] = extract_schema_db_postgres(**db_params)
+                elif row['database_type'] == 'MYSQL':
+                    ds_schema_data["schema"] = extract_schema_db_mysql(**db_params)
+                else:
+                    ds_schema_data["schema"] = None
             ds_schemas_data.append(
-                f"{ds_schema_data['filename']}: {','.join(ds_schema_data['schema'])}"
+                f"{ds_schema_data['name']}: {','.join(ds_schema_data['schema'])}"
             )
         return "/n".join(ds_schemas_data)
     except Exception as e:
@@ -258,6 +270,148 @@ def extract_schema_json(file_path, data=[], depth=0):
         return {"type": "array", "items": extract_schema_json("", data[0], depth + 1)}
     else:
         return {"type": type(data).__name__}
+    
+
+def extract_schema_db_postgres(
+    host, dbname, user, password, port=5432, schema='public'
+):
+    """
+    Extrae el esquema de una base de datos PostgreSQL.
+
+    Args:
+        host (str): Host de la BD
+        dbname (str): Nombre de la BD
+        user (str): Usuario
+        password (str): Contraseña
+        port (int, optional): Puerto. Por defecto 5432
+        schema (str, optional): Esquema a consultar. Por defecto 'public'
+
+    Returns:
+        dict: Diccionario con detalle: {tabla: {columnas: [{name, type, key}]}}
+    """
+    conn = psycopg2.connect(
+        host=host, database=dbname, user=user, password=password, port=port
+    )
+    cur = conn.cursor()
+
+    final_schema = {}
+
+    # Obtener tablas del esquema
+    cur.execute("""
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = %s AND table_type='BASE TABLE'
+    """, (schema,))
+    tables = [r[0] for r in cur.fetchall()]
+
+    for table in tables:
+        cur.execute("""
+            SELECT
+                column_name,
+                data_type,
+                is_nullable
+            FROM information_schema.columns
+            WHERE table_schema = %s AND table_name = %s
+            ORDER BY ordinal_position
+        """, (schema, table))
+        columns = cur.fetchall()
+        
+        # Verificar si la columna es primary key
+        cur.execute("""
+            SELECT
+                kcu.column_name
+            FROM
+                information_schema.table_constraints tc
+                JOIN information_schema.key_column_usage kcu
+                    ON tc.constraint_name = kcu.constraint_name
+                    AND tc.table_schema = kcu.table_schema
+            WHERE tc.constraint_type = 'PRIMARY KEY'
+                AND tc.table_schema = %s
+                AND tc.table_name = %s
+        """, (schema, table))
+        pks = set([r[0] for r in cur.fetchall()])
+
+        final_schema[table] = {
+            'columnas': [
+                {
+                    'name': col[0],
+                    'type': col[1],
+                    'is_nullable': col[2],
+                    'is_primary_key': col[0] in pks
+                }
+                for col in columns
+            ]
+        }
+
+    cur.close()
+    conn.close()
+    return final_schema
+
+
+def extract_schema_db_mysql(
+    host, dbname, user, password, port=3306, schema=None
+):
+    """
+    Extrae el esquema de una base de datos MySQL.
+
+    Args:
+        host (str): Host de la BD
+        dbname (str): Nombre de la BD
+        user (str): Usuario
+        password (str): Contraseña
+        port (int, optional): Puerto (default 3306)
+        schema (str, optional): Esquema/Base de datos a consultar (default dbname)
+
+    Returns:
+        dict: Diccionario con el esquema: {tabla: {columnas: [{name, type, key}]}}
+    """
+    if schema is None:
+        schema = dbname
+
+    conn = mysql.connector.connect(
+        host=host, database=schema, user=user, password=password, port=port
+    )
+    cur = conn.cursor()
+
+    final_schema = {}
+
+    # Obtener lista de tablas
+    cur.execute("""
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = %s AND table_type = 'BASE TABLE'
+    """, (schema,))
+    tables = [r[0] for r in cur.fetchall()]
+
+    for table in tables:
+        # Obtener columnas y si son PK
+        cur.execute("""
+            SELECT
+                column_name,
+                data_type,
+                is_nullable,
+                column_key
+            FROM information_schema.columns
+            WHERE table_schema = %s AND table_name = %s
+            ORDER BY ordinal_position
+        """, (schema, table))
+        columns = cur.fetchall()
+
+        final_schema[table] = {
+            'columnas': [
+                {
+                    'name': col[0],
+                    'type': col[1],
+                    'is_nullable': col[2],
+                    'is_primary_key': (col[3] == 'PRI')
+                }
+                for col in columns
+            ]
+        }
+
+    cur.close()
+    conn.close()
+    return final_schema
 
 
 def get_experiment_params(experiment_path: str):

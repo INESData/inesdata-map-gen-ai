@@ -179,6 +179,8 @@ multidict==6.1.0
     #   yarl
 mypy-extensions==1.0.0
     # via typing-inspect
+mysql-connector-python==9.3.0
+    # via -r requirements/requirements.in
 nltk==3.9.1
     # via -r requirements/requirements.in
 numpy==1.26.4
