@@ -1,11 +1,11 @@
 {
     "command": "python3 llm_chain/inference.py -exp 3",
     "temp": 0,
-    "data_sources": [121],
-    "ontologies": [40],
+    "data_sources": [182],
+    "ontologies": [47],
     "expected_result": "data/output/expected/people_expected_RML.rml",
-    "prompt_technique": "zero-shot",
-    "model": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GPTQ",
+    "prompt_technique": "one-shot",
+    "model": "gpt-4o-mini",
     "model_id": "gpt-4o-mini",
     "chunked": "True",
     "returnsRML": "False"
