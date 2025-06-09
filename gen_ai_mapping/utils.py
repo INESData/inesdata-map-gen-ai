@@ -16,8 +16,14 @@ import requests
 from bs4 import BeautifulSoup
 from rdflib import Graph
 from sqlalchemy import create_engine
+import re
+
+# Tokenization support
+import tiktoken  # For OpenAI models
+from transformers import AutoTokenizer  # For Mistral or Hugging Face models
 
 from llm_metrics import RML_COLS_STR
+
 
 
 def connect_to_db():
@@ -97,18 +103,121 @@ def load_ontologies_str(onto_ids: list):
         return None
 
 
-def read_ontology_rdf(ontology_data):
-    try:  # rdf ontos
+def get_tokenizer(model_id, model_tokenizer):
+    """Get the appropriate tokenizer based on model type.
+
+    Args:
+        model_id (_type_): _description_
+        model_tokenizer (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    if model_id.lower() == "mixtral87b":
+        # Load tokenizer for Mistral model
+        return AutoTokenizer.from_pretrained(model_tokenizer)
+    else:
+        # Get gpt-4 tokenizer
+        return tiktoken.get_encoding(model_tokenizer)
+
+
+def encode_text(text, tokenizer, model_id):
+    """Tokeniza el texto según el modelo."""
+    if model_id == "gpt-4o-mini":
+        return tokenizer.encode(text)
+    else:
+        return tokenizer.encode(text, add_special_tokens=False)
+
+def decode_tokens(tokens, tokenizer, model_id):
+    """Decodifica tokens a texto según el modelo."""
+    if model_id == "gpt-4o-mini":
+        return tokenizer.decode(tokens)
+    else:
+        return tokenizer.decode(tokens, skip_special_tokens=True)
+
+def chunk_tokens(tokens, tokenizer, model_id, max_tokens):
+    """Divide una lista de tokens en chunks de tamaño max_tokens."""
+    chunks = []
+    for i in range(0, len(tokens), max_tokens):
+        chunk_tokens = tokens[i:i + max_tokens]
+        chunk_text = decode_tokens(chunk_tokens, tokenizer, model_id)
+        chunks.append(chunk_text)
+    return chunks
+
+
+def chunk_text(ontology_data, model_id, model_tokenizer,max_tokens):
+    """Split long text into chunks by token limit.
+    """
+    tokenizer= get_tokenizer(model_id, model_tokenizer)
+    chunks = []
+    buffer_text = ""  # Temporary buffer to accumulate content until chunk size is reached
+
+    try: 
+    
+        # 1. Split ontology into logic blocks to avoid parse problems
+        
+        ontology_blocks = [o for o in ontology_data.split(os.linesep * 2)]
+
+        # 2. Tokenize each block
+        for block in ontology_blocks:
+            block_tokens = encode_text(block, tokenizer, model_id)
+            buffer_tokens = encode_text(buffer_text, tokenizer, model_id) if buffer_text else [] 
+
+            # 2.1. If the current buffer + new block fits within max token limit, append it to the buffer
+            if len(buffer_tokens) + len(block_tokens) <= max_tokens:
+                buffer_text += ("" if not buffer_text else "\n\n") + block
+            else:
+                # 2.2. If adding the block would exceed the limit, finalize the current buffer as a chunk
+                if buffer_text:
+                    buffer_chunk_tokens = encode_text(buffer_text, tokenizer, model_id)
+                    chunks.extend(chunk_tokens(buffer_chunk_tokens, tokenizer, model_id, max_tokens))
+
+                 # 2.3. Start a new buffer with the current block
+                buffer_text = block
+        # 3. After loop, add any remaining buffered text as a final chunk
+        if buffer_text:
+            buffer_chunk_tokens = encode_text(buffer_text, tokenizer, model_id)
+            chunks.extend(chunk_tokens(buffer_chunk_tokens, tokenizer, model_id, max_tokens))
+
+    except Exception as e_chunk:
+        # If an error occurs during tokenization or chunking, report it
+        print(f"Error processing ontology data: {e_chunk}")
+        print(traceback.format_exc())
+
+    return chunks
+
+
+
+def read_ontology_rdf(ontology_data, model_id, model_tokenizer, max_tokens):
+    """Load or chunk ontology data.
+
+    Args:
+        ontology_data (_type_): _description_
+        max_tokens (_type_, optional): _description_. 
+        tokenizer_name (str, optional): _description_. 
+
+    Returns:
+        _type_: _description_
+    """
+    try:
+        #  RDF/XML ontologies
         graph = Graph()
         ontology_rdf_graph = graph.parse(data=ontology_data, format="xml")
         return ontology_rdf_graph
-    except Exception as e:  # owl ontos
+    except Exception:
+        # If parsing fails, assume it's OWL or malformed RDF, and chunk as plain text
+
         try:
-            ontology_chunks = [o for o in ontology_data.split(os.linesep * 2)]
+        # Otherwise, split it into token-sized chunks
+            ontology_chunks =chunk_text(ontology_data,model_id, model_tokenizer,max_tokens)
             return ontology_chunks
-        except Exception as e:
-            print(f"An error occurred loading the ontologies elements: {e}")
+
+        except Exception as e_chunk:
+            # If an error occurs during tokenization or chunking, report it
+            print(f"Error processing ontology data: {e_chunk}")
             print(traceback.format_exc())
+            return None
+
 
 
 def load_ontologies_list(onto_ids: list):
@@ -445,7 +554,7 @@ def get_experiment_prompt(
         ontologies = load_ontologies_list(ontologies_ids)
         prompts = []
         for ontology in ontologies:
-            ontology_elements = read_ontology_rdf(ontology)
+            ontology_elements = read_ontology_rdf(ontology,experiment_params["model_id"], experiment_params["model_tokenizer"], experiment_params["max_tokens"])
             for ontology_element in ontology_elements:
                 prompt_template = prompt_template_module.get_prompt(ds_schemas, ontology_element)
                 prompts.append(prompt_template)
@@ -466,16 +575,16 @@ def get_experiment_prompt_txt(experiment_path: str):
         input_variables=["ontology", "data_source_schema"],
         template=prompt_template,
     )
-
     return prompt_template
 
 
 def join_chunking_results(results_array):
     results_df = pd.DataFrame([])
+
     for result in results_array:
-        # convert csv string into dataframe given by LLM
-        llm_output_df = get_llm_output_df(result)
-        results_df = pd.concat([results_df, llm_output_df], axis=0, ignore_index=True)
+            # convert csv string into dataframe given by LLM
+            llm_output_df = get_llm_output_df(result)
+            results_df = pd.concat([results_df, llm_output_df], axis=0, ignore_index=True)
     results_df = results_df.drop_duplicates().dropna()
     # Convert df to str
     results_str = StringIO()
@@ -483,7 +592,6 @@ def join_chunking_results(results_array):
     print(results_str.getvalue())
 
     return results_str.getvalue()
-
 
 def get_token_kubeflow():
     username = os.getenv("KUBEFLOW_USERNAME")
@@ -608,12 +716,11 @@ def store_llm_output(output, experiment_name):
         print("LLM error: no output generated")
         print(traceback.format_exc())
 
-
 def get_llm_output_df(llm_output):
     llm_df = None
     try:# convert csv string into dataframe given by LLM
         llm_mapping = llm_output.strip().replace("\\", "")
-        llm = pd.read_csv(StringIO(llm_mapping), sep="|", on_bad_lines="warn")
+        llm = pd.read_csv(StringIO(llm_mapping), sep="|", engine="python", on_bad_lines="warn")
         # selecting the columns from llm df
         llm_df = llm[RML_COLS_STR + ["subject_template"]].copy().drop_duplicates(ignore_index=True).dropna(how="all")
         # striping blank spaces if present
