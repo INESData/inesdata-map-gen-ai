@@ -36,7 +36,7 @@ def get_llm_inference(prompt: str, experiment_params: dict):
             "prompt": prompt,
             "temperature": experiment_params["temp"],
             "stream": False,
-            "max_tokens": 1000,
+            "max_tokens": 1024,
         }
 
         response = requests.post(llm_url, headers=headers, json=json_data)
