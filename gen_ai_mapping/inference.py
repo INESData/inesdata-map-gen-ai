@@ -106,7 +106,7 @@ def track_experiment(experiment_name: str, experiment_params: dict, prompt):
     return result, metrics
 
 
-def get_inference(prompt_experiment_name: str, data_sources_ids: list, ontologies_ids: list):
+def get_inference(prompt_experiment_name: str, data_sources_ids: list, ontologies_ids: list, llm_params: str):
     mlflow_uri = os.getenv("MLFLOW_URI", None)
     if mlflow_uri:
         mlflow.set_tracking_uri(mlflow_uri)
@@ -116,7 +116,7 @@ def get_inference(prompt_experiment_name: str, data_sources_ids: list, ontologie
     else:
         experiment_path = ""
 
-    experiment_params = get_experiment_params(experiment_path)
+    experiment_params = get_experiment_params(experiment_path, llm_params)
 
     if eval(experiment_params["chunked"]):
         results_array = []
