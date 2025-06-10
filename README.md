@@ -24,7 +24,15 @@ De esta forma, el módulo `gen_ai_mapping` se encarga de:
 - `KUBEFLOW_USERNAME`
 - `KUBEFLOW_PASSWORD`
 
-4. Almacenamiento del **output resultante en disco**. Para ello es necesario la variable de entorno `APP_DATAPROCESSINGPATH`, que indica la ruta de guardado del output del paquete.
+**NOTA**. Si se desea probar otro modelo desplegado en otra nube (tenemos un ejemplo con **Azure OpenAI**):
+- Es necesario borrar la variable de entorno de Kubeflow `KUBEFLOW_LLM_ENDPOINT`.
+- Crear las nuevas variables `AZURE_LLM_ENDPOINT` y `AZURE_API_KEY` con las credenciales de Azure.
+
+
+4. Para poder usar el modelo de tokenización, es necesario definir la variable de entorno `HF_TOKEN`.
+
+
+5. Almacenamiento del **output resultante en disco**. Para ello es necesario la variable de entorno `APP_DATAPROCESSINGPATH`, que indica la ruta de guardado del output del paquete.
 
 ## Uso ▶️
 
