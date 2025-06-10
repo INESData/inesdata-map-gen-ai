@@ -28,7 +28,15 @@ def main():
     if experiment_name:
         experiment_name = f"exp{experiment_name}"
 
-    output = get_inference(experiment_name, data_sources, ontologies)
+    # LLM params: kubeflow or azure
+    if os.getenv("KUBEFLOW_LLM_ENDPOINT"):
+        llm_params = "kf_llm_params"
+    elif os.getenv("AZURE_LLM_ENDPOINT"):
+        llm_params = "azure_llm_params"
+    else: # KF by default
+        llm_params = "kf_llm_params"
+    
+    output = get_inference(experiment_name, data_sources, ontologies, llm_params)
 
     store_llm_output(output, experiment_name)
 
