@@ -9,5 +9,5 @@ pydocstyle==6.1.1           # Analyze docstring conventions
 pytest==7.1.2               # Test library
 pytest-html-reporter==0.2.9 # Static html report based on pytest
 tox~=3.20.0                 # Test automation tool
-twine==4.0.1                # Publish package
+twine==6.1.0                # Publish package
 wheel==0.37.0               # A built-package formattwine
