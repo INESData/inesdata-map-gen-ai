@@ -12,3 +12,4 @@ psycopg2-binary==2.9.10
 azure-core==1.34.0
 transformers == 4.52.4
 tiktoken == 0.9.0
+torch==2.7.1
