@@ -1,0 +1,15 @@
+{
+
+   "command": "python3 llm_chain/inference.py -exp 10",
+    "temp": 0,
+    "data_sources": [229],
+    "ontologies": [136],
+    "expected_result": "data/output/expected/people_expected_RML.rml",
+    "prompt_technique": "few-shot",
+    "model": "gpt-4o-mini",
+    "model_id": "gpt-4o-mini", 
+    "model_tokenizer": "cl100k_base",
+    "max_tokens": 16000,
+    "chunked": "True",
+    "returnsRML": "False"
+}
