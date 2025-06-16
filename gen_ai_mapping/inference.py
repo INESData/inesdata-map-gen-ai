@@ -1,5 +1,6 @@
 import json
 import os
+import traceback
 import warnings
 
 import mlflow
@@ -19,57 +20,62 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 def get_llm_inference(prompt: str, experiment_params: dict):
     model = experiment_params["model_id"]
-    
-    if os.getenv("KUBEFLOW_LLM_ENDPOINT"):
-        llm_url = os.getenv("KUBEFLOW_LLM_ENDPOINT")
-        host_kf_url = os.getenv("KUBEFLOW_LLM_HOST")
-        kf_token = get_token_kubeflow()
-        
-        headers = {
-            "Authorization": f"Bearer {kf_token}",
-            "Content-Type": "application/json",
-            "Host": host_kf_url,
-        }
-        
-        json_data = {
-            "model": model,
-            "prompt": prompt,
-            "temperature": experiment_params["temp"],
-            "stream": False,
-            "max_tokens": 1024,
-        }
+    try:
+        if os.getenv("KUBEFLOW_LLM_ENDPOINT"):
+            llm_url = os.getenv("KUBEFLOW_LLM_ENDPOINT")
+            host_kf_url = os.getenv("KUBEFLOW_LLM_HOST")
+            kf_token = get_token_kubeflow()
+            
+            headers = {
+                "Authorization": f"Bearer {kf_token}",
+                "Content-Type": "application/json",
+                "Host": host_kf_url,
+            }
+            
+            json_data = {
+                "model": model,
+                "prompt": prompt,
+                "temperature": experiment_params["temp"],
+                "stream": False,
+                "max_tokens": 1024,
+            }
 
-        response = requests.post(llm_url, headers=headers, json=json_data)
-        json_out = json.loads(response.content)
-        output = json_out["choices"][0]["text"]
-    else: # AZURE OPENAI
-        llm_url = os.getenv("AZURE_LLM_ENDPOINT") + f"{model}/chat/completions?api-version=2024-12-01-preview"
-        azure_api_key = os.getenv("AZURE_API_KEY")
-        
-        headers = {
-            "api-key": azure_api_key,
-            "Content-Type": "application/json",
-        }
-        json_data = {
-            "messages": [
-                {
-                    "role": "system",
-                    "content": prompt
-                }
-            ],
-            "top_p": 1.0,
-            "model": model,
-            "temperature": experiment_params["temp"],
-            "stream": False,
-            "max_tokens": 1000,
-        }
+            response = requests.post(llm_url, headers=headers, json=json_data)
+            json_out = json.loads(response.content)
+            output = json_out["choices"][0]["text"]
+        else: # AZURE OPENAI
+            llm_url = os.getenv("AZURE_LLM_ENDPOINT") + f"{model}/chat/completions?api-version=2024-12-01-preview"
+            azure_api_key = os.getenv("AZURE_API_KEY")
+            
+            headers = {
+                "api-key": azure_api_key,
+                "Content-Type": "application/json",
+            }
+            json_data = {
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": prompt
+                    }
+                ],
+                "top_p": 1.0,
+                "model": model,
+                "temperature": experiment_params["temp"],
+                "stream": False,
+                "max_tokens": 1000,
+            }
 
-        response = requests.post(llm_url, headers=headers, json=json_data, verify=False)
-        json_out = json.loads(response.content)
-        output = json_out["choices"][0]["message"]["content"]
+            response = requests.post(llm_url, headers=headers, json=json_data, verify=False)
+            json_out = json.loads(response.content)
+            output = json_out["choices"][0]["message"]["content"]
         
-    print(output)
-    return output
+        print(output)
+
+        return output
+    except Exception as e:
+        print(f"Error during LLM inference: {e}")
+        print(traceback.format_exc())
+        return None
 
 
 def track_experiment(experiment_name: str, experiment_params: dict, prompt):
