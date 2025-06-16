@@ -172,14 +172,15 @@ def get_rml_metrics(mapping, llm_mapping):
     # comparing the sub-df and llm-df
     for i in columns:
         print(f"COLUMN NAME: {i}")
-        # striping blank spaces if present
-        llm_df[i] = llm_df[i].str.strip().astype(str)
-        rml_df[i] = rml_df[i].str.strip().astype(str)
-        # print the Classification report
-        print(classification_report( llm_df[i], rml_df[i] ))
-        # compute F1-scores
-        f1 = f1_score(llm_df[i], rml_df[i], average="weighted")
-        # add it to the list
-        f1_list.append(f1)
+        if llm_df[i].notnull().any() and rml_df[i].notnull().any():
+            # striping blank spaces if present
+            llm_df[i] = llm_df[i].str.strip().astype(str)
+            rml_df[i] = rml_df[i].str.strip().astype(str)
+            # print the Classification report
+            print(classification_report( llm_df[i], rml_df[i]))
+            # compute F1-scores
+            f1 = f1_score(llm_df[i], rml_df[i], average="weighted")
+            # add it to the list
+            f1_list.append(f1)
     # return the average f1 score
-    return sum(f1_list) / len(f1_list)
+    return np.mean(f1_list)
