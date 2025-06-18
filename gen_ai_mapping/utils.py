@@ -704,13 +704,12 @@ def parse_keycloak_url(url):
 def store_llm_output(output, experiment_name):
     if output:
         output_dir = os.getenv("APP_DATAPROCESSINGPATH") + "/output/gen-ai"
-        timestr = time.strftime("%Y%m%d-%H%M%S")
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         if experiment_name:
-            path_output_file = f"{output_dir}/{experiment_name}_{timestr}_llm_output.csv"
+            path_output_file = f"{output_dir}/{experiment_name}_llm_output.csv"
         else:
-            path_output_file = f"{output_dir}/{timestr}_llm_output.csv"
+            path_output_file = f"{output_dir}/llm_output.csv"
 
         with open(path_output_file, "w") as file:
             file.write(output)
@@ -767,10 +766,9 @@ def get_llm_output_preds(llm_output_dict):
 
 
 def convert_to_web_format(llm_output, data_sources, ontologies):
-    timestr = time.strftime("%Y%m%d-%H%M%S")
     data_sources = json.loads(data_sources)
     llm_output_json = {
-        "name": "LLM mapping " + timestr,
+        "name": "LLM mapping",
         "ontologyIds": ast.literal_eval(ontologies),
     }
     json_fields = []
@@ -812,13 +810,12 @@ def convert_to_web_format(llm_output, data_sources, ontologies):
 def store_llm_output_json(output, experiment_name):
     if output:
         output_dir = os.getenv("APP_DATAPROCESSINGPATH") + "/output/gen-ai"
-        timestr = time.strftime("%Y%m%d-%H%M%S")
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         if experiment_name:
-            path_output_file = f"{output_dir}/{experiment_name}_{timestr}_llm_output.json"
+            path_output_file = f"{output_dir}/{experiment_name}_llm_output.json"
         else:
-            path_output_file = f"{output_dir}/{timestr}_llm_output.json"
+            path_output_file = f"{output_dir}/llm_output.json"
 
         with open(path_output_file, "w") as file:
             json.dump(output, file)
