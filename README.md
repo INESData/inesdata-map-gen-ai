@@ -29,7 +29,7 @@ De esta forma, el módulo `gen_ai_mapping` se encarga de:
 - Crear las nuevas variables `AZURE_LLM_ENDPOINT` y `AZURE_API_KEY` con las credenciales de Azure.
 
 
-4. Para poder usar el modelo de tokenización, es necesario definir la variable de entorno `HF_TOKEN`.
+4. Para poder usar el modelo de tokenización, es necesario definir la variable de entorno `HF_TOKEN`, que contiene el token de Hugging Face para poder conectarse al modelo tokenizer. Para obtenerlo, es necesario registrarse en la página web y crear el token de acceso en https://huggingface.co/settings/tokens.
 
 
 5. Almacenamiento del **output resultante en disco**. Para ello es necesario la variable de entorno `APP_DATAPROCESSINGPATH`, que indica la ruta de guardado del output del paquete.
